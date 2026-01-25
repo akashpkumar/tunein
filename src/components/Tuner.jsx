@@ -3,7 +3,7 @@ import { createAudioAnalyzer, findClosestString, getCentsOff } from '../utils/pi
 import Waveform from './Waveform';
 import './Tuner.css';
 
-const NUM_BARS = 41;
+const NUM_BARS = 37;
 const CENTER_INDEX = Math.floor(NUM_BARS / 2);
 const MAX_CENTS = 50;
 
@@ -14,35 +14,26 @@ function getBarColor(index) {
   // Normalize to 0-1 range
   const t = Math.min(distanceFromCenter / maxDistance, 1);
 
-  // Interpolate hue: green (142) -> yellow (60) -> orange (30) -> red (0)
-  // Using a curve that spends more time in green/yellow
-  let hue;
-  if (t < 0.3) {
-    // Green to yellow-green
-    hue = 142 - (t / 0.3) * 50; // 142 -> 92
-  } else if (t < 0.6) {
-    // Yellow-green to yellow/orange
-    hue = 92 - ((t - 0.3) / 0.3) * 42; // 92 -> 50
-  } else {
-    // Orange to red
-    hue = 50 - ((t - 0.6) / 0.4) * 50; // 50 -> 0
-  }
+  // Interpolate hue: green (142) -> yellow (50) -> red (0)
+  const hue = 142 * (1 - t * t); // Quadratic falloff for smoother gradient
 
   // Saturation and lightness
-  const saturation = 80 + t * 10; // 80% -> 90%
-  const lightness = 55 - t * 10; // 55% -> 45%
+  const saturation = 75 + t * 15;
+  const lightness = 50;
 
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
+const GLOW_RANGE = 15; // Max positions glow can move from center
+
 function TuningIndicator({ cents, analyzerRef }) {
   const clampedCents = Math.max(-MAX_CENTS, Math.min(MAX_CENTS, cents || 0));
-  const activeIndex = Math.round(CENTER_INDEX + (clampedCents / MAX_CENTS) * CENTER_INDEX);
-  const color = getBarColor(activeIndex);
 
-  // Calculate offset from center bar (in bar units including gap)
-  const offsetFromCenter = activeIndex - CENTER_INDEX;
-  const isOnCenter = activeIndex === CENTER_INDEX;
+  // Calculate offset independently of bar count
+  const offsetFromCenter = Math.round((clampedCents / MAX_CENTS) * GLOW_RANGE);
+  const activeIndex = CENTER_INDEX + offsetFromCenter;
+  const color = getBarColor(activeIndex);
+  const isOnCenter = offsetFromCenter === 0;
 
   return (
     <div className="tuning-indicator">
