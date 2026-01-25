@@ -101,20 +101,6 @@ function AnimatedNote({ note, octave }) {
   );
 }
 
-function getTuningHint(cents) {
-  if (Math.abs(cents) < 5) {
-    return { text: 'In tune', className: 'in-tune' };
-  } else if (cents < -25) {
-    return { text: 'Tune up ↑', className: 'tune-up' };
-  } else if (cents < 0) {
-    return { text: 'Tune up slightly', className: 'tune-up' };
-  } else if (cents > 25) {
-    return { text: 'Tune down ↓', className: 'tune-down' };
-  } else {
-    return { text: 'Tune down slightly', className: 'tune-down' };
-  }
-}
-
 const SMOOTHING_FACTOR = 0.3; // Lower = smoother but more lag (0.1-0.5 range)
 const NOTE_HOLD_FRAMES = 5; // Frames to hold a note before switching
 
@@ -206,7 +192,6 @@ export default function Tuner() {
     );
   }
 
-  const hint = getTuningHint(cents);
   const isInTune = Math.abs(cents) < 5;
 
   return (
@@ -219,6 +204,11 @@ export default function Tuner() {
               octave={closestString?.octave}
               isInTune={isInTune}
             />
+            {closestString && !isInTune && (
+              <span className={`tune-arrow ${cents < 0 ? 'up' : 'down'}`}>
+                {cents < 0 ? '↑' : '↓'}
+              </span>
+            )}
           </div>
           <div className="string-label">
             {closestString ? closestString.label : 'Play a string'}
@@ -226,10 +216,6 @@ export default function Tuner() {
         </div>
 
         <TuningIndicator cents={cents} analyzerRef={analyzerRef} />
-
-        <div className={`tuning-hint ${hint.className}`}>
-          {closestString ? hint.text : ''}
-        </div>
       </div>
     </div>
   );
