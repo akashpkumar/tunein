@@ -42,13 +42,50 @@
   color: #fff;
   letter-spacing: 4px;
   transition: color 0.2s ease;
+  perspective: 500px;
 }
 
 .note-display.in-tune {
   color: #22c55e;
 }
 
-.note-display sub {
+.note-text {
+  display: inline-block;
+  animation: noteEnter 0.2s ease-out forwards;
+}
+
+.note-text.note-exit {
+  animation: noteExit 0.15s ease-in forwards;
+}
+
+.note-text.note-enter {
+  animation: noteEnter 0.2s ease-out forwards;
+}
+
+@keyframes noteExit {
+  from {
+    opacity: 1;
+    transform: scale(1) translateZ(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.8) translateZ(-50px);
+  }
+}
+
+@keyframes noteEnter {
+  from {
+    opacity: 0;
+    transform: scale(1.2) translateZ(50px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateZ(0);
+  }
+}
+
+.note-display sub,
+.note-text sub {
   font-size: 0.4em;
   vertical-align: baseline;
   position: relative;
@@ -82,32 +119,41 @@
 }
 
 .bars-container {
+  --bar-width: 5px;
+  --bar-gap: 4px;
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 6px;
+  gap: var(--bar-gap);
   height: 30vh;
   padding: 0 10px;
 }
 
 .bar {
-  width: 8px;
+  width: var(--bar-width);
   height: 50%;
   border-radius: 4px;
-  transition: all 0.05s ease-out;
+  background-color: rgba(255, 255, 255, 0.15);
 }
 
 .bar.center {
   height: 75%;
 }
 
-.bar.active {
-  height: 85%;
-  width: 10px;
+.bar-glow {
+  position: absolute;
+  left: 50%;
+  width: var(--bar-width);
+  height: 50%;
+  border-radius: 4px;
+  transform: translateX(calc(-50% + var(--offset, 0) * (var(--bar-width) + var(--bar-gap))));
+  transition: transform 0.12s ease-out, background-color 0.12s ease-out, box-shadow 0.12s ease-out, height 0.12s ease-out;
+  pointer-events: none;
 }
 
-.bar.active.center {
-  height: 100%;
+.bar-glow.center {
+  height: 75%;
 }
 
 .labels {
@@ -167,14 +213,7 @@
   }
 
   .bars-container {
-    gap: 4px;
-  }
-
-  .bar {
-    width: 6px;
-  }
-
-  .bar.active {
-    width: 8px;
+    --bar-width: 4px;
+    --bar-gap: 3px;
   }
 }

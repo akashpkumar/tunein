@@ -2,50 +2,64 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createAudioAnalyzer, findClosestString, getCentsOff } from '../utils/pitchDetection';
 import './Tuner.css';
 
-const NUM_BARS = 31;
+const NUM_BARS = 41;
 const CENTER_INDEX = Math.floor(NUM_BARS / 2);
 const MAX_CENTS = 50;
 
 function getBarColor(index) {
   const distanceFromCenter = Math.abs(index - CENTER_INDEX);
+  const maxDistance = CENTER_INDEX;
 
-  if (distanceFromCenter === 0) {
-    return '#22c55e';
-  } else if (distanceFromCenter <= 3) {
-    return '#4ade80';
-  } else if (distanceFromCenter <= 6) {
-    return '#a3e635';
-  } else if (distanceFromCenter <= 9) {
-    return '#facc15';
-  } else if (distanceFromCenter <= 12) {
-    return '#fb923c';
+  // Normalize to 0-1 range
+  const t = Math.min(distanceFromCenter / maxDistance, 1);
+
+  // Interpolate hue: green (142) -> yellow (60) -> orange (30) -> red (0)
+  // Using a curve that spends more time in green/yellow
+  let hue;
+  if (t < 0.3) {
+    // Green to yellow-green
+    hue = 142 - (t / 0.3) * 50; // 142 -> 92
+  } else if (t < 0.6) {
+    // Yellow-green to yellow/orange
+    hue = 92 - ((t - 0.3) / 0.3) * 42; // 92 -> 50
   } else {
-    return '#ef4444';
+    // Orange to red
+    hue = 50 - ((t - 0.6) / 0.4) * 50; // 50 -> 0
   }
+
+  // Saturation and lightness
+  const saturation = 80 + t * 10; // 80% -> 90%
+  const lightness = 55 - t * 10; // 55% -> 45%
+
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
-function TuningIndicator({ cents, frequency }) {
+function TuningIndicator({ cents }) {
   const clampedCents = Math.max(-MAX_CENTS, Math.min(MAX_CENTS, cents || 0));
   const activeIndex = Math.round(CENTER_INDEX + (clampedCents / MAX_CENTS) * CENTER_INDEX);
+  const color = getBarColor(activeIndex);
+
+  // Calculate offset from center bar (in bar units including gap)
+  const offsetFromCenter = activeIndex - CENTER_INDEX;
+  const isOnCenter = activeIndex === CENTER_INDEX;
 
   return (
     <div className="tuning-indicator">
       <div className="bars-container">
-        {Array.from({ length: NUM_BARS }, (_, i) => {
-          const isActive = i === activeIndex;
-          const color = getBarColor(i);
-
-          return (
-            <div
-              key={i}
-              className={`bar ${isActive ? 'active' : ''} ${i === CENTER_INDEX ? 'center' : ''}`}
-              style={{
-                backgroundColor: isActive ? color : 'rgba(255, 255, 255, 0.15)',
-                boxShadow: isActive ? `0 0 10px ${color}, 0 0 20px ${color}` : 'none',
-              }}
-            />
-          );
-        })}
+        {Array.from({ length: NUM_BARS }, (_, i) => (
+          <div
+            key={i}
+            className={`bar ${i === CENTER_INDEX ? 'center' : ''}`}
+          />
+        ))}
+        <div
+          className={`bar-glow ${isOnCenter ? 'center' : ''}`}
+          style={{
+            '--offset': offsetFromCenter,
+            backgroundColor: color,
+            boxShadow: `0 0 10px ${color}, 0 0 20px ${color}`,
+          }}
+        />
       </div>
       <div className="labels">
         <span className="label flat">FLAT</span>
@@ -53,6 +67,35 @@ function TuningIndicator({ cents, frequency }) {
         <span className="label sharp">SHARP</span>
       </div>
     </div>
+  );
+}
+
+function AnimatedNote({ note, octave }) {
+  const prevRef = useRef({ note: null, octave: null });
+  const [animating, setAnimating] = useState(false);
+
+  useEffect(() => {
+    if (note && prevRef.current.note && note !== prevRef.current.note) {
+      setAnimating(true);
+      const timeout = setTimeout(() => setAnimating(false), 200);
+      return () => clearTimeout(timeout);
+    }
+    prevRef.current = { note, octave };
+  }, [note, octave]);
+
+  // Update ref when note changes (after animation trigger)
+  useEffect(() => {
+    prevRef.current = { note, octave };
+  }, [note, octave]);
+
+  if (!note) {
+    return <span className="note-text">--</span>;
+  }
+
+  return (
+    <span key={`${note}${octave}`} className={`note-text ${animating ? '' : 'note-enter'}`}>
+      {note}<sub>{octave}</sub>
+    </span>
   );
 }
 
@@ -142,11 +185,11 @@ export default function Tuner() {
       <div className="tuner-content">
         <div className="note-section">
           <div className={`note-display ${isInTune ? 'in-tune' : ''}`}>
-            {closestString ? (
-              <>
-                {closestString.note}<sub>{closestString.octave}</sub>
-              </>
-            ) : '--'}
+            <AnimatedNote
+              note={closestString?.note}
+              octave={closestString?.octave}
+              isInTune={isInTune}
+            />
           </div>
           <div className="string-label">
             {closestString ? closestString.label : 'Play a string'}
