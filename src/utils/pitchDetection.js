@@ -123,15 +123,20 @@ export async function createAudioAnalyzer() {
 
   source.connect(analyser);
 
+  const waveformBuffer = new Float32Array(analyser.fftSize);
+
   return {
     analyser,
     audioContext,
     stream,
     sampleRate: audioContext.sampleRate,
     getFrequency: () => {
-      const buffer = new Float32Array(analyser.fftSize);
-      analyser.getFloatTimeDomainData(buffer);
-      return detectPitch(buffer, audioContext.sampleRate);
+      analyser.getFloatTimeDomainData(waveformBuffer);
+      return detectPitch(waveformBuffer, audioContext.sampleRate);
+    },
+    getWaveform: () => {
+      analyser.getFloatTimeDomainData(waveformBuffer);
+      return waveformBuffer;
     },
     cleanup: () => {
       stream.getTracks().forEach(track => track.stop());

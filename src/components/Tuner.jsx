@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createAudioAnalyzer, findClosestString, getCentsOff } from '../utils/pitchDetection';
+import Waveform from './Waveform';
 import './Tuner.css';
 
 const NUM_BARS = 41;
@@ -34,7 +35,7 @@ function getBarColor(index) {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
-function TuningIndicator({ cents }) {
+function TuningIndicator({ cents, analyzerRef }) {
   const clampedCents = Math.max(-MAX_CENTS, Math.min(MAX_CENTS, cents || 0));
   const activeIndex = Math.round(CENTER_INDEX + (clampedCents / MAX_CENTS) * CENTER_INDEX);
   const color = getBarColor(activeIndex);
@@ -46,6 +47,7 @@ function TuningIndicator({ cents }) {
   return (
     <div className="tuning-indicator">
       <div className="bars-container">
+        <Waveform analyzerRef={analyzerRef} />
         {Array.from({ length: NUM_BARS }, (_, i) => (
           <div
             key={i}
@@ -113,6 +115,9 @@ function getTuningHint(cents) {
   }
 }
 
+const SMOOTHING_FACTOR = 0.3; // Lower = smoother but more lag (0.1-0.5 range)
+const NOTE_HOLD_FRAMES = 5; // Frames to hold a note before switching
+
 export default function Tuner() {
   const [frequency, setFrequency] = useState(null);
   const [closestString, setClosestString] = useState(null);
@@ -122,6 +127,8 @@ export default function Tuner() {
 
   const analyzerRef = useRef(null);
   const animationRef = useRef(null);
+  const smoothedFreqRef = useRef(null);
+  const noteHoldRef = useRef({ note: null, count: 0 });
 
   const startListening = useCallback(async () => {
     try {
@@ -136,11 +143,33 @@ export default function Tuner() {
         const freq = analyzerRef.current.getFrequency();
 
         if (freq) {
-          setFrequency(freq);
-          const string = findClosestString(freq);
-          setClosestString(string);
+          // Exponential smoothing for frequency
+          if (smoothedFreqRef.current === null) {
+            smoothedFreqRef.current = freq;
+          } else {
+            smoothedFreqRef.current =
+              SMOOTHING_FACTOR * freq + (1 - SMOOTHING_FACTOR) * smoothedFreqRef.current;
+          }
+
+          const smoothedFreq = smoothedFreqRef.current;
+          setFrequency(smoothedFreq);
+
+          const string = findClosestString(smoothedFreq);
+
+          // Hysteresis: only switch notes after consistent detection
           if (string) {
-            setCents(getCentsOff(freq, string.frequency));
+            const noteKey = `${string.note}${string.octave}`;
+            if (noteKey === noteHoldRef.current.note) {
+              noteHoldRef.current.count++;
+            } else {
+              noteHoldRef.current = { note: noteKey, count: 1 };
+            }
+
+            if (noteHoldRef.current.count >= NOTE_HOLD_FRAMES || closestString === null) {
+              setClosestString(string);
+            }
+
+            setCents(getCentsOff(smoothedFreq, string.frequency));
           }
         }
 
@@ -152,7 +181,7 @@ export default function Tuner() {
       console.error('Error accessing microphone:', err);
       setError('Could not access microphone. Please grant permission and refresh.');
     }
-  }, []);
+  }, [closestString]);
 
   useEffect(() => {
     startListening();
@@ -196,7 +225,7 @@ export default function Tuner() {
           </div>
         </div>
 
-        <TuningIndicator cents={cents} frequency={frequency} />
+        <TuningIndicator cents={cents} analyzerRef={analyzerRef} />
 
         <div className={`tuning-hint ${hint.className}`}>
           {closestString ? hint.text : ''}
