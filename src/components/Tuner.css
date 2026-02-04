@@ -140,8 +140,8 @@
 }
 
 .bars-container {
-  --bar-width: 8px;
-  --bar-gap: 7px;
+  --bar-width: clamp(4px, 2vw, 8px);
+  --bar-gap: clamp(4px, 1.5vw, 7px);
   position: relative;
   display: flex;
   justify-content: center;

@@ -36,7 +36,7 @@ export function getCentsOff(frequency, targetFrequency) {
 }
 
 // Minimum threshold to avoid detecting silence
-const MIN_THRESHOLD = 0.002;
+const MIN_THRESHOLD = 0.001;
 // Signal must be this many times above noise floor to trigger
 const NOISE_GATE_RATIO = 4;
 // How fast the noise floor adapts (lower = slower, more stable)

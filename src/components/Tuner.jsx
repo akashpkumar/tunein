@@ -26,35 +26,44 @@ function getBarColor(index) {
 
 const GLOW_RANGE = 20; // Max positions indicator can move from center
 
+const DEBOUNCE_THRESHOLD = 0.1; // Minimum change to update position
+
 function TuningIndicator({ cents, analyzerRef }) {
   const clampedCents = Math.max(-MAX_CENTS, Math.min(MAX_CENTS, cents || 0));
   const smoothedOffsetRef = useRef(0);
+  const lastUpdateRef = useRef(0);
 
   // Calculate target offset
   const targetOffset = (clampedCents / MAX_CENTS) * GLOW_RANGE;
 
+  // Debounce: only update if change is significant
+  const diff = Math.abs(targetOffset - lastUpdateRef.current);
+  if (diff > DEBOUNCE_THRESHOLD) {
+    lastUpdateRef.current = targetOffset;
+  }
+  const debouncedTarget = lastUpdateRef.current;
+
   // Smooth the offset (lerp toward target)
-  smoothedOffsetRef.current += (targetOffset - smoothedOffsetRef.current) * 0.3;
-  const offsetFromCenter = Math.round(smoothedOffsetRef.current);
-  const activeIndex = CENTER_INDEX + offsetFromCenter;
+  smoothedOffsetRef.current += (debouncedTarget - smoothedOffsetRef.current) * 0.25;
+
+  // Keep fractional position for smooth highlighting
+  const fractionalOffset = smoothedOffsetRef.current;
+  const activePosition = CENTER_INDEX + fractionalOffset;
 
   return (
     <div className="tuning-indicator">
       <div className="bars-container">
         <Waveform analyzerRef={analyzerRef} />
         {Array.from({ length: NUM_BARS }, (_, i) => {
-          const distanceFromActive = Math.abs(i - activeIndex);
+          // Fractional distance for smooth blending
+          const distance = Math.abs(i - activePosition);
           const color = getBarColor(i);
 
+          // Smooth opacity falloff based on fractional distance
           let opacity = 0;
-          if (distanceFromActive === 0) {
-            opacity = 1;
-          } else if (distanceFromActive === 1) {
-            opacity = 0.4;
-          } else if (distanceFromActive === 2) {
-            opacity = 0.2;
-          } else if (distanceFromActive === 3) {
-            opacity = 0.1;
+          if (distance <= 4) {
+            // Smooth curve: 1.0 at center, fading to 0 at distance 4
+            opacity = Math.max(0, 1 - (distance / 4) * 0.9);
           }
 
           return (
@@ -105,7 +114,7 @@ function AnimatedNote({ note, octave }) {
 }
 
 const SMOOTHING_FACTOR = 0.3; // Lower = smoother but more lag (0.1-0.5 range)
-const NOTE_HOLD_FRAMES = 5; // Frames to hold a note before switching
+const NOTE_HOLD_FRAMES = 12; // Frames to hold a note before switching
 
 export default function Tuner() {
   const [frequency, setFrequency] = useState(null);
@@ -148,6 +157,24 @@ export default function Tuner() {
           // Hysteresis: only switch notes after consistent detection
           if (string) {
             const noteKey = `${string.note}${string.octave}`;
+
+            // If we have a current string, check if we should stick with it
+            // (prefer current note if new note isn't significantly better)
+            if (closestString) {
+              const currentCents = Math.abs(getCentsOff(smoothedFreq, closestString.frequency));
+              const newCents = Math.abs(getCentsOff(smoothedFreq, string.frequency));
+
+              // Only consider switching if new note is notably closer (within 30 cents)
+              // or if current note is way off (> 40 cents)
+              if (currentCents < 40 && newCents > currentCents - 10) {
+                // Stick with current note
+                setCents(getCentsOff(smoothedFreq, closestString.frequency));
+                noteHoldRef.current = { note: `${closestString.note}${closestString.octave}`, count: 0 };
+                animationRef.current = requestAnimationFrame(updatePitch);
+                return;
+              }
+            }
+
             if (noteKey === noteHoldRef.current.note) {
               noteHoldRef.current.count++;
             } else {
