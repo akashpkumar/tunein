@@ -35,7 +35,16 @@ export function getCentsOff(frequency, targetFrequency) {
   return 1200 * Math.log2(frequency / targetFrequency);
 }
 
-// Autocorrelation-based pitch detection
+// Minimum threshold to avoid detecting silence
+const MIN_THRESHOLD = 0.002;
+// Signal must be this many times above noise floor to trigger
+const NOISE_GATE_RATIO = 4;
+// How fast the noise floor adapts (lower = slower, more stable)
+const NOISE_FLOOR_DECAY = 0.05;
+
+// Autocorrelation-based pitch detection with adaptive noise gate
+let noiseFloor = 0.01;
+
 export function detectPitch(audioBuffer, sampleRate) {
   const buffer = audioBuffer;
   const SIZE = buffer.length;
@@ -48,8 +57,20 @@ export function detectPitch(audioBuffer, sampleRate) {
   }
   rms = Math.sqrt(rms / SIZE);
 
-  // Not enough signal
-  if (rms < 0.01) {
+  // Update noise floor estimate (tracks quiet periods)
+  // Only lower the floor gradually, raise it slowly too
+  if (rms < noiseFloor) {
+    noiseFloor = rms;
+  } else if (rms < noiseFloor * 2) {
+    // Slowly adapt up if consistently slightly louder
+    noiseFloor += (rms - noiseFloor) * NOISE_FLOOR_DECAY;
+  }
+
+  // Dynamic threshold: must be well above noise floor
+  const threshold = Math.max(MIN_THRESHOLD, noiseFloor * NOISE_GATE_RATIO);
+
+  // Not enough signal above noise
+  if (rms < threshold) {
     return null;
   }
 
