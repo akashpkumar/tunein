@@ -3,38 +3,57 @@ import { createAudioAnalyzer, findClosestString, getCentsOff } from '../utils/pi
 import Waveform from './Waveform';
 import './Tuner.css';
 
-const NUM_BARS = 51;
-const CENTER_INDEX = Math.floor(NUM_BARS / 2);
+const NUM_BARS_DESKTOP = 51;
+const NUM_BARS_MOBILE = 31;
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 600);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 600);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return isMobile;
+}
 const MAX_CENTS = 50;
 
-function getBarColor(index) {
-  const distanceFromCenter = Math.abs(index - CENTER_INDEX);
-  const maxDistance = CENTER_INDEX;
+function getBarColor(index, centerIndex) {
+  const distanceFromCenter = Math.abs(index - centerIndex);
+  const maxDistance = centerIndex;
 
   // Normalize to 0-1 range
   const t = Math.min(distanceFromCenter / maxDistance, 1);
 
-  // Interpolate hue: green (142) -> yellow (50) -> red (0)
-  const hue = 142 * (1 - t * t); // Quadratic falloff for smoother gradient
+  // Faster falloff: use cubic for quicker transition to orange/red
+  // Green (120) -> Yellow (60) -> Orange (30) -> Red (0)
+  const hue = 120 * Math.pow(1 - t, 2.5);
 
   // Saturation and lightness
-  const saturation = 75 + t * 15;
+  const saturation = 70 + t * 20;
   const lightness = 50;
 
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
-const GLOW_RANGE = 20; // Max positions indicator can move from center
 
 const DEBOUNCE_THRESHOLD = 0.3; // Minimum change to update position
 
 function TuningIndicator({ cents, analyzerRef }) {
+  const isMobile = useIsMobile();
+  const numBars = isMobile ? NUM_BARS_MOBILE : NUM_BARS_DESKTOP;
+  const centerIndex = Math.floor(numBars / 2);
+
   const clampedCents = Math.max(-MAX_CENTS, Math.min(MAX_CENTS, cents || 0));
   const smoothedOffsetRef = useRef(0);
   const lastUpdateRef = useRef(0);
 
+  // Adjust glow range based on bar count
+  const glowRange = Math.floor(centerIndex * 0.8);
+
   // Calculate target offset
-  const targetOffset = (clampedCents / MAX_CENTS) * GLOW_RANGE;
+  const targetOffset = (clampedCents / MAX_CENTS) * glowRange;
 
   // Debounce: only update if change is significant
   const diff = Math.abs(targetOffset - lastUpdateRef.current);
@@ -48,16 +67,16 @@ function TuningIndicator({ cents, analyzerRef }) {
 
   // Keep fractional position for smooth highlighting
   const fractionalOffset = smoothedOffsetRef.current;
-  const activePosition = CENTER_INDEX + fractionalOffset;
+  const activePosition = centerIndex + fractionalOffset;
 
   return (
     <div className="tuning-indicator">
       <div className="bars-container">
         <Waveform analyzerRef={analyzerRef} />
-        {Array.from({ length: NUM_BARS }, (_, i) => {
+        {Array.from({ length: numBars }, (_, i) => {
           // Fractional distance for smooth blending
           const distance = Math.abs(i - activePosition);
-          const color = getBarColor(i);
+          const color = getBarColor(i, centerIndex);
 
           // Smooth opacity falloff based on fractional distance
           let opacity = 0;
@@ -69,7 +88,7 @@ function TuningIndicator({ cents, analyzerRef }) {
           return (
             <div
               key={i}
-              className={`bar ${i === CENTER_INDEX ? 'center' : ''}`}
+              className={`bar ${i === centerIndex ? 'center' : ''}`}
               style={opacity > 0 ? { backgroundColor: color, opacity } : undefined}
             />
           );

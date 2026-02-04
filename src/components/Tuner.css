@@ -140,8 +140,8 @@
 }
 
 .bars-container {
-  --bar-width: clamp(4px, 2vw, 8px);
-  --bar-gap: clamp(4px, 1.5vw, 7px);
+  --bar-width: clamp(6px, 2vw, 10px);
+  --bar-gap: clamp(5px, 1.5vw, 8px);
   position: relative;
   display: flex;
   justify-content: center;
@@ -165,7 +165,9 @@
 .labels {
   display: flex;
   justify-content: space-between;
-  padding: 12px 5px 0;
+  padding: 12px 5% 0;
+  width: 90%;
+  margin: 0 auto;
 }
 
 .label {
