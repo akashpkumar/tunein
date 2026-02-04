@@ -26,7 +26,7 @@ function getBarColor(index) {
 
 const GLOW_RANGE = 20; // Max positions indicator can move from center
 
-const DEBOUNCE_THRESHOLD = 0.1; // Minimum change to update position
+const DEBOUNCE_THRESHOLD = 0.3; // Minimum change to update position
 
 function TuningIndicator({ cents, analyzerRef }) {
   const clampedCents = Math.max(-MAX_CENTS, Math.min(MAX_CENTS, cents || 0));
@@ -44,7 +44,7 @@ function TuningIndicator({ cents, analyzerRef }) {
   const debouncedTarget = lastUpdateRef.current;
 
   // Smooth the offset (lerp toward target)
-  smoothedOffsetRef.current += (debouncedTarget - smoothedOffsetRef.current) * 0.25;
+  smoothedOffsetRef.current += (debouncedTarget - smoothedOffsetRef.current) * 0.15;
 
   // Keep fractional position for smooth highlighting
   const fractionalOffset = smoothedOffsetRef.current;
@@ -113,7 +113,7 @@ function AnimatedNote({ note, octave }) {
   );
 }
 
-const SMOOTHING_FACTOR = 0.3; // Lower = smoother but more lag (0.1-0.5 range)
+const SMOOTHING_FACTOR = 0.15; // Lower = smoother but more lag (0.1-0.5 range)
 const NOTE_HOLD_FRAMES = 12; // Frames to hold a note before switching
 
 export default function Tuner() {
@@ -127,6 +127,7 @@ export default function Tuner() {
   const animationRef = useRef(null);
   const smoothedFreqRef = useRef(null);
   const noteHoldRef = useRef({ note: null, count: 0 });
+  const freqHistoryRef = useRef([]); // For median filtering
 
   const startListening = useCallback(async () => {
     try {
@@ -141,12 +142,20 @@ export default function Tuner() {
         const freq = analyzerRef.current.getFrequency();
 
         if (freq) {
-          // Exponential smoothing for frequency
+          // Median filter: keep last 5 readings, use median
+          freqHistoryRef.current.push(freq);
+          if (freqHistoryRef.current.length > 5) {
+            freqHistoryRef.current.shift();
+          }
+          const sorted = [...freqHistoryRef.current].sort((a, b) => a - b);
+          const medianFreq = sorted[Math.floor(sorted.length / 2)];
+
+          // Exponential smoothing on top of median
           if (smoothedFreqRef.current === null) {
-            smoothedFreqRef.current = freq;
+            smoothedFreqRef.current = medianFreq;
           } else {
             smoothedFreqRef.current =
-              SMOOTHING_FACTOR * freq + (1 - SMOOTHING_FACTOR) * smoothedFreqRef.current;
+              SMOOTHING_FACTOR * medianFreq + (1 - SMOOTHING_FACTOR) * smoothedFreqRef.current;
           }
 
           const smoothedFreq = smoothedFreqRef.current;
