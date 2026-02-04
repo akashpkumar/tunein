@@ -3,7 +3,7 @@ import { createAudioAnalyzer, findClosestString, getCentsOff } from '../utils/pi
 import Waveform from './Waveform';
 import './Tuner.css';
 
-const NUM_BARS = 37;
+const NUM_BARS = 51;
 const CENTER_INDEX = Math.floor(NUM_BARS / 2);
 const MAX_CENTS = 50;
 
@@ -24,35 +24,47 @@ function getBarColor(index) {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
-const GLOW_RANGE = 15; // Max positions glow can move from center
+const GLOW_RANGE = 20; // Max positions indicator can move from center
 
 function TuningIndicator({ cents, analyzerRef }) {
   const clampedCents = Math.max(-MAX_CENTS, Math.min(MAX_CENTS, cents || 0));
+  const smoothedOffsetRef = useRef(0);
 
-  // Calculate offset independently of bar count
-  const offsetFromCenter = Math.round((clampedCents / MAX_CENTS) * GLOW_RANGE);
+  // Calculate target offset
+  const targetOffset = (clampedCents / MAX_CENTS) * GLOW_RANGE;
+
+  // Smooth the offset (lerp toward target)
+  smoothedOffsetRef.current += (targetOffset - smoothedOffsetRef.current) * 0.3;
+  const offsetFromCenter = Math.round(smoothedOffsetRef.current);
   const activeIndex = CENTER_INDEX + offsetFromCenter;
-  const color = getBarColor(activeIndex);
-  const isOnCenter = offsetFromCenter === 0;
 
   return (
     <div className="tuning-indicator">
       <div className="bars-container">
         <Waveform analyzerRef={analyzerRef} />
-        {Array.from({ length: NUM_BARS }, (_, i) => (
-          <div
-            key={i}
-            className={`bar ${i === CENTER_INDEX ? 'center' : ''}`}
-          />
-        ))}
-        <div
-          className={`bar-glow ${isOnCenter ? 'center' : ''}`}
-          style={{
-            '--offset': offsetFromCenter,
-            backgroundColor: color,
-            boxShadow: `0 0 10px ${color}, 0 0 20px ${color}`,
-          }}
-        />
+        {Array.from({ length: NUM_BARS }, (_, i) => {
+          const distanceFromActive = Math.abs(i - activeIndex);
+          const color = getBarColor(i);
+
+          let opacity = 0;
+          if (distanceFromActive === 0) {
+            opacity = 1;
+          } else if (distanceFromActive === 1) {
+            opacity = 0.4;
+          } else if (distanceFromActive === 2) {
+            opacity = 0.2;
+          } else if (distanceFromActive === 3) {
+            opacity = 0.1;
+          }
+
+          return (
+            <div
+              key={i}
+              className={`bar ${i === CENTER_INDEX ? 'center' : ''}`}
+              style={opacity > 0 ? { backgroundColor: color, opacity } : undefined}
+            />
+          );
+        })}
       </div>
       <div className="labels">
         <span className="label flat">FLAT</span>

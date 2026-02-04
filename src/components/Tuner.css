@@ -14,7 +14,7 @@
 
 .tuner-content {
   width: 100%;
-  max-width: 400px;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -140,8 +140,8 @@
 }
 
 .bars-container {
-  --bar-width: 6px;
-  --bar-gap: 6px;
+  --bar-width: 8px;
+  --bar-gap: 7px;
   position: relative;
   display: flex;
   justify-content: center;
@@ -154,26 +154,11 @@
 .bar {
   width: var(--bar-width);
   height: 50%;
-  border-radius: 4px;
   background-color: rgba(255, 255, 255, 0.15);
+  transition: background-color 0.1s ease-out, opacity 0.1s ease-out;
 }
 
 .bar.center {
-  height: 75%;
-}
-
-.bar-glow {
-  position: absolute;
-  left: 50%;
-  width: var(--bar-width);
-  height: 50%;
-  border-radius: 4px;
-  transform: translateX(calc(-50% + var(--offset, 0) * (var(--bar-width) + var(--bar-gap))));
-  transition: transform 0.12s ease-out, background-color 0.12s ease-out, box-shadow 0.12s ease-out, height 0.12s ease-out;
-  pointer-events: none;
-}
-
-.bar-glow.center {
   height: 75%;
 }
 
@@ -213,7 +198,6 @@
   }
 
   .bars-container {
-    --bar-width: 5px;
-    --bar-gap: 5px;
+    --bar-gap: 6px;
   }
 }
