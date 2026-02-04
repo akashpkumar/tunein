@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createAudioAnalyzer, findClosestString, getCentsOff } from '../utils/pitchDetection';
+import { TUNINGS, DEFAULT_TUNING } from '../utils/tunings';
+import TuningSelector from './TuningSelector';
 import Waveform from './Waveform';
 import './Tuner.css';
 
@@ -141,12 +143,22 @@ export default function Tuner() {
   const [cents, setCents] = useState(0);
   const [error, setError] = useState(null);
   const [isReady, setIsReady] = useState(false);
+  const [currentTuning, setCurrentTuning] = useState(DEFAULT_TUNING);
 
   const analyzerRef = useRef(null);
   const animationRef = useRef(null);
   const smoothedFreqRef = useRef(null);
   const noteHoldRef = useRef({ note: null, count: 0 });
   const freqHistoryRef = useRef([]); // For median filtering
+  const tuningRef = useRef(currentTuning);
+
+  // Keep tuning ref in sync
+  useEffect(() => {
+    tuningRef.current = currentTuning;
+    // Reset note detection when tuning changes
+    setClosestString(null);
+    noteHoldRef.current = { note: null, count: 0 };
+  }, [currentTuning]);
 
   const startListening = useCallback(async () => {
     try {
@@ -180,7 +192,8 @@ export default function Tuner() {
           const smoothedFreq = smoothedFreqRef.current;
           setFrequency(smoothedFreq);
 
-          const string = findClosestString(smoothedFreq);
+          const tuningStrings = TUNINGS[tuningRef.current].strings;
+          const string = findClosestString(smoothedFreq, tuningStrings);
 
           // Hysteresis: only switch notes after consistent detection
           if (string) {
@@ -255,6 +268,11 @@ export default function Tuner() {
   return (
     <div className="tuner">
       <div className="tuner-content">
+        <TuningSelector
+          currentTuning={currentTuning}
+          onSelectTuning={setCurrentTuning}
+        />
+
         <div className="note-section">
           <div className={`note-display ${isInTune ? 'in-tune' : ''}`}>
             <AnimatedNote

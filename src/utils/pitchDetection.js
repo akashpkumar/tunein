@@ -1,23 +1,13 @@
-// Guitar string frequencies (standard tuning)
-export const GUITAR_STRINGS = [
-  { note: 'E', octave: 2, frequency: 82.41, string: 6, label: '6th string (low E)' },
-  { note: 'A', octave: 2, frequency: 110.0, string: 5, label: '5th string' },
-  { note: 'D', octave: 3, frequency: 146.83, string: 4, label: '4th string' },
-  { note: 'G', octave: 3, frequency: 196.0, string: 3, label: '3rd string' },
-  { note: 'B', octave: 3, frequency: 246.94, string: 2, label: '2nd string' },
-  { note: 'E', octave: 4, frequency: 329.63, string: 1, label: '1st string (high E)' },
-];
-
 // Find the closest guitar string to a given frequency
-export function findClosestString(frequency) {
-  if (!frequency || frequency < 60 || frequency > 400) {
+export function findClosestString(frequency, strings) {
+  if (!frequency || frequency < 50 || frequency > 400 || !strings || strings.length === 0) {
     return null;
   }
 
-  let closest = GUITAR_STRINGS[0];
+  let closest = strings[0];
   let minDiff = Math.abs(frequency - closest.frequency);
 
-  for (const string of GUITAR_STRINGS) {
+  for (const string of strings) {
     const diff = Math.abs(frequency - string.frequency);
     if (diff < minDiff) {
       minDiff = diff;
