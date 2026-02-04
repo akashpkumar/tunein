@@ -1,31 +1,52 @@
-/* Tuning Pill */
-.tuning-pill {
+/* Split Selector Pill */
+.selector-pill {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  align-items: stretch;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 16px;
-  padding: 10px 24px;
+  overflow: hidden;
+}
+
+.pill-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 10px 20px;
+  background: transparent;
+  border: none;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease;
 }
 
-.tuning-pill:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.25);
+.pill-section:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.tuning-name {
-  font-size: 0.9rem;
+.instrument-section {
+  padding: 10px 16px;
+}
+
+.tuning-section {
+  padding: 10px 20px;
+}
+
+.pill-divider {
+  width: 1px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.pill-label {
+  font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 2px;
   color: rgba(255, 255, 255, 0.9);
 }
 
-.tuning-notes {
-  font-size: 0.7rem;
+.pill-notes {
+  font-size: 0.65rem;
   color: rgba(255, 255, 255, 0.5);
   letter-spacing: 3px;
 }

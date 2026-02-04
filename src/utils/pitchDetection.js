@@ -1,6 +1,6 @@
-// Find the closest guitar string to a given frequency
-export function findClosestString(frequency, strings) {
-  if (!frequency || frequency < 50 || frequency > 400 || !strings || strings.length === 0) {
+// Find the closest string to a given frequency
+export function findClosestString(frequency, strings, detection = { minFreq: 50, maxFreq: 400 }) {
+  if (!frequency || frequency < detection.minFreq || frequency > detection.maxFreq || !strings || strings.length === 0) {
     return null;
   }
 
@@ -35,7 +35,7 @@ const NOISE_FLOOR_DECAY = 0.05;
 // Autocorrelation-based pitch detection with adaptive noise gate
 let noiseFloor = 0.01;
 
-export function detectPitch(audioBuffer, sampleRate) {
+export function detectPitch(audioBuffer, sampleRate, detection = { minFreq: 70, maxFreq: 400 }) {
   const buffer = audioBuffer;
   const SIZE = buffer.length;
   const MAX_SAMPLES = Math.floor(SIZE / 2);
@@ -77,8 +77,8 @@ export function detectPitch(audioBuffer, sampleRate) {
   // Find the FIRST significant peak (not just max) to avoid octave errors
   // Guitar harmonics can create higher peaks at half the period (octave up)
 
-  let minLag = Math.floor(sampleRate / 400); // ~400 Hz max
-  let maxLag = Math.floor(sampleRate / 70);  // ~70 Hz min
+  let minLag = Math.floor(sampleRate / detection.maxFreq);
+  let maxLag = Math.floor(sampleRate / detection.minFreq);
 
   // First, find the maximum correlation value for reference
   let maxCorrelation = 0;
@@ -122,7 +122,7 @@ export function detectPitch(audioBuffer, sampleRate) {
   const frequency = sampleRate / refinedLag;
 
   // Sanity check
-  if (frequency < 70 || frequency > 400) {
+  if (frequency < detection.minFreq || frequency > detection.maxFreq) {
     return null;
   }
 
@@ -130,7 +130,7 @@ export function detectPitch(audioBuffer, sampleRate) {
 }
 
 // Create audio analyzer
-export async function createAudioAnalyzer() {
+export async function createAudioAnalyzer(detection = { minFreq: 70, maxFreq: 400, fftSize: 4096 }) {
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: {
       echoCancellation: false,
@@ -143,12 +143,13 @@ export async function createAudioAnalyzer() {
   const source = audioContext.createMediaStreamSource(stream);
   const analyser = audioContext.createAnalyser();
 
-  analyser.fftSize = 4096;
+  analyser.fftSize = detection.fftSize;
   analyser.smoothingTimeConstant = 0.1;
 
   source.connect(analyser);
 
-  const waveformBuffer = new Float32Array(analyser.fftSize);
+  let waveformBuffer = new Float32Array(analyser.fftSize);
+  let currentDetection = detection;
 
   return {
     analyser,
@@ -157,11 +158,18 @@ export async function createAudioAnalyzer() {
     sampleRate: audioContext.sampleRate,
     getFrequency: () => {
       analyser.getFloatTimeDomainData(waveformBuffer);
-      return detectPitch(waveformBuffer, audioContext.sampleRate);
+      return detectPitch(waveformBuffer, audioContext.sampleRate, currentDetection);
     },
     getWaveform: () => {
       analyser.getFloatTimeDomainData(waveformBuffer);
       return waveformBuffer;
+    },
+    updateDetection: (newDetection) => {
+      currentDetection = newDetection;
+      if (newDetection.fftSize !== analyser.fftSize) {
+        analyser.fftSize = newDetection.fftSize;
+        waveformBuffer = new Float32Array(analyser.fftSize);
+      }
     },
     cleanup: () => {
       stream.getTracks().forEach(track => track.stop());

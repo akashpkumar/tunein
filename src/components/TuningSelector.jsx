@@ -1,43 +1,90 @@
 import { useState } from 'react';
-import { TUNINGS, getTuningNotesShort } from '../utils/tunings';
+import { INSTRUMENTS, getInstrumentList, getTuningsForInstrument } from '../utils/instruments';
 import './TuningSelector.css';
 
-export default function TuningSelector({ currentTuning, onSelectTuning }) {
-  const [isOpen, setIsOpen] = useState(false);
+export default function TuningSelector({
+  currentInstrument,
+  currentTuning,
+  onSelectInstrument,
+  onSelectTuning
+}) {
+  const [instrumentModalOpen, setInstrumentModalOpen] = useState(false);
+  const [tuningModalOpen, setTuningModalOpen] = useState(false);
 
-  const tuning = TUNINGS[currentTuning];
-  const notesDisplay = getTuningNotesShort(tuning);
+  const instrument = INSTRUMENTS[currentInstrument];
+  const tuning = instrument.tunings[currentTuning];
+  const tuningNotes = tuning.strings.map(s => s.note).join(' ');
+  const instruments = getInstrumentList();
+  const tunings = getTuningsForInstrument(currentInstrument);
 
   return (
     <>
-      <button className="tuning-pill" onClick={() => setIsOpen(true)}>
-        <span className="tuning-name">{tuning.name}</span>
-        <span className="tuning-notes">{notesDisplay}</span>
-      </button>
+      <div className="selector-pill">
+        <button
+          className="pill-section instrument-section"
+          onClick={() => setInstrumentModalOpen(true)}
+        >
+          <span className="pill-label">{instrument.name}</span>
+        </button>
+        <div className="pill-divider" />
+        <button
+          className="pill-section tuning-section"
+          onClick={() => setTuningModalOpen(true)}
+        >
+          <span className="pill-label">{tuning.name}</span>
+          <span className="pill-notes">{tuningNotes}</span>
+        </button>
+      </div>
 
+      {/* Instrument Modal */}
       <div
-        className={`tuning-modal-overlay ${isOpen ? 'open' : ''}`}
-        onClick={() => setIsOpen(false)}
+        className={`tuning-modal-overlay ${instrumentModalOpen ? 'open' : ''}`}
+        onClick={() => setInstrumentModalOpen(false)}
       >
         <div
-          className={`tuning-modal ${isOpen ? 'open' : ''}`}
+          className={`tuning-modal ${instrumentModalOpen ? 'open' : ''}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2>Select Instrument</h2>
+          <div className="tuning-list">
+            {instruments.map(({ key, name }) => (
+              <button
+                key={key}
+                className={`tuning-option ${key === currentInstrument ? 'active' : ''}`}
+                onClick={() => {
+                  onSelectInstrument(key);
+                  setInstrumentModalOpen(false);
+                }}
+              >
+                <span className="tuning-option-name">{name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Tuning Modal */}
+      <div
+        className={`tuning-modal-overlay ${tuningModalOpen ? 'open' : ''}`}
+        onClick={() => setTuningModalOpen(false)}
+      >
+        <div
+          className={`tuning-modal ${tuningModalOpen ? 'open' : ''}`}
           onClick={(e) => e.stopPropagation()}
         >
           <h2>Select Tuning</h2>
           <div className="tuning-list">
-            {Object.entries(TUNINGS).map(([key, t]) => (
+            {tunings.map(({ key, name, notes }) => (
               <button
                 key={key}
                 className={`tuning-option ${key === currentTuning ? 'active' : ''}`}
                 onClick={() => {
                   onSelectTuning(key);
-                  setIsOpen(false);
+                  setTuningModalOpen(false);
                 }}
               >
-                <span className="tuning-option-name">{t.name}</span>
-                <span className="tuning-option-notes">
-                  {t.strings.map(s => s.note).join(' ')}
-                </span>
+                <span className="tuning-option-name">{name}</span>
+                <span className="tuning-option-notes">{notes}</span>
               </button>
             ))}
           </div>

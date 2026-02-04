@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createAudioAnalyzer, findClosestString, getCentsOff } from '../utils/pitchDetection';
-import { TUNINGS, DEFAULT_TUNING } from '../utils/tunings';
+import { INSTRUMENTS, DEFAULT_INSTRUMENT, DEFAULT_TUNINGS } from '../utils/instruments';
 import TuningSelector from './TuningSelector';
 import Waveform from './Waveform';
 import './Tuner.css';
@@ -143,27 +143,46 @@ export default function Tuner() {
   const [cents, setCents] = useState(0);
   const [error, setError] = useState(null);
   const [isReady, setIsReady] = useState(false);
-  const [currentTuning, setCurrentTuning] = useState(DEFAULT_TUNING);
+  const [currentInstrument, setCurrentInstrument] = useState(DEFAULT_INSTRUMENT);
+  const [currentTuning, setCurrentTuning] = useState(DEFAULT_TUNINGS[DEFAULT_INSTRUMENT]);
 
   const analyzerRef = useRef(null);
   const animationRef = useRef(null);
   const smoothedFreqRef = useRef(null);
   const noteHoldRef = useRef({ note: null, count: 0 });
   const freqHistoryRef = useRef([]); // For median filtering
+  const instrumentRef = useRef(currentInstrument);
   const tuningRef = useRef(currentTuning);
 
-  // Keep tuning ref in sync
+  // Get current instrument and tuning data
+  const instrument = INSTRUMENTS[currentInstrument];
+  const tuning = instrument.tunings[currentTuning];
+
+  // Keep refs in sync
   useEffect(() => {
+    instrumentRef.current = currentInstrument;
     tuningRef.current = currentTuning;
-    // Reset note detection when tuning changes
+    // Reset note detection when instrument/tuning changes
     setClosestString(null);
     noteHoldRef.current = { note: null, count: 0 };
-  }, [currentTuning]);
+
+    // Update analyzer detection settings if it exists
+    if (analyzerRef.current) {
+      analyzerRef.current.updateDetection(instrument.detection);
+    }
+  }, [currentInstrument, currentTuning, instrument.detection]);
+
+  // Handle instrument change - also reset tuning to default for that instrument
+  const handleInstrumentChange = useCallback((newInstrument) => {
+    setCurrentInstrument(newInstrument);
+    setCurrentTuning(DEFAULT_TUNINGS[newInstrument]);
+  }, []);
 
   const startListening = useCallback(async () => {
     try {
       setError(null);
-      const analyzer = await createAudioAnalyzer();
+      const detection = INSTRUMENTS[instrumentRef.current].detection;
+      const analyzer = await createAudioAnalyzer(detection);
       analyzerRef.current = analyzer;
       setIsReady(true);
 
@@ -171,6 +190,8 @@ export default function Tuner() {
         if (!analyzerRef.current) return;
 
         const freq = analyzerRef.current.getFrequency();
+        const currentInst = INSTRUMENTS[instrumentRef.current];
+        const currentTuningData = currentInst.tunings[tuningRef.current];
 
         if (freq) {
           // Median filter: keep last 5 readings, use median
@@ -192,8 +213,8 @@ export default function Tuner() {
           const smoothedFreq = smoothedFreqRef.current;
           setFrequency(smoothedFreq);
 
-          const tuningStrings = TUNINGS[tuningRef.current].strings;
-          const string = findClosestString(smoothedFreq, tuningStrings);
+          const tuningStrings = currentTuningData.strings;
+          const string = findClosestString(smoothedFreq, tuningStrings, currentInst.detection);
 
           // Hysteresis: only switch notes after consistent detection
           if (string) {
@@ -269,7 +290,9 @@ export default function Tuner() {
     <div className="tuner">
       <div className="tuner-content">
         <TuningSelector
+          currentInstrument={currentInstrument}
           currentTuning={currentTuning}
+          onSelectInstrument={handleInstrumentChange}
           onSelectTuning={setCurrentTuning}
         />
 
