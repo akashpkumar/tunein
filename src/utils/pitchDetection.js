@@ -84,22 +84,36 @@ export function detectPitch(audioBuffer, sampleRate) {
     correlations[lag] = sum;
   }
 
-  // Find the first peak after the initial decline
-  let foundPeak = false;
-  let peakLag = 0;
-  let peakValue = 0;
+  // Find the FIRST significant peak (not just max) to avoid octave errors
+  // Guitar harmonics can create higher peaks at half the period (octave up)
 
-  // Skip the first part (always high correlation at lag 0)
-  // Look for where correlation starts rising again
   let minLag = Math.floor(sampleRate / 400); // ~400 Hz max
   let maxLag = Math.floor(sampleRate / 70);  // ~70 Hz min
 
-  // Find the peak in the valid range
+  // First, find the maximum correlation value for reference
+  let maxCorrelation = 0;
   for (let lag = minLag; lag < maxLag && lag < MAX_SAMPLES; lag++) {
-    if (correlations[lag] > peakValue) {
-      peakValue = correlations[lag];
+    if (correlations[lag] > maxCorrelation) {
+      maxCorrelation = correlations[lag];
+    }
+  }
+
+  // Now find the FIRST peak that's at least 80% of the max
+  // This helps us find the fundamental rather than a harmonic
+  const peakThreshold = maxCorrelation * 0.8;
+  let peakLag = 0;
+  let foundPeak = false;
+
+  for (let lag = minLag; lag < maxLag && lag < MAX_SAMPLES; lag++) {
+    const current = correlations[lag];
+    const prev = correlations[lag - 1] || 0;
+    const next = correlations[lag + 1] || 0;
+
+    // Detect if we're at a local peak
+    if (current > prev && current >= next && current >= peakThreshold) {
       peakLag = lag;
       foundPeak = true;
+      break; // Take the first significant peak
     }
   }
 
@@ -161,7 +175,9 @@ export async function createAudioAnalyzer() {
     },
     cleanup: () => {
       stream.getTracks().forEach(track => track.stop());
-      audioContext.close();
+      if (audioContext.state !== 'closed') {
+        audioContext.close();
+      }
     }
   };
 }
